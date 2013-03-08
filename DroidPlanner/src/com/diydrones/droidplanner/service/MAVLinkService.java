@@ -9,6 +9,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -22,8 +23,8 @@ import android.util.Log;
 import com.MAVLink.MAVLink;
 import com.MAVLink.Messages.MAVLinkMessage;
 import com.MAVLink.Messages.MAVLinkPacket;
-import com.diydrones.droidplanner.R;
-import com.diydrones.droidplanner.TerminalActivity;
+import com.hoho.android.usbserial.driver.UsbSerialDriver;
+import com.hoho.android.usbserial.driver.UsbSerialProber;
 
 /**
  * http://developer.android.com/guide/components/bound-services.html#Messenger
@@ -185,12 +186,29 @@ public class MAVLinkService extends Service {
 		} else {
 			SharedPreferences prefs = PreferenceManager
 					.getDefaultSharedPreferences(getApplicationContext());
-			String serverIP = prefs.getString("pref_server_ip", "");
-			int port = Integer.parseInt(prefs
-					.getString("pref_server_port", "0"));
-			boolean logEnabled = prefs.getBoolean("pref_mavlink_log_enabled",
-					false);
 			MAV.openConnection(serverIP, port, logEnabled);
+			boolean logEnabled = prefs.getBoolean("pref_mavlink_log_enabled",false);
+			int connectionType = prefs.getInt("pref_mavlink_connection_type",MAVLink.USB);
+			
+			switch (connectionType) {
+			case MAVLink.TCP:
+				String serverIP =prefs.getString("pref_server_ip", "");
+				int port = Integer.parseInt(prefs.getString("pref_server_port", "0"));		
+				MAV.openConnection(logEnabled,serverIP,port);				
+				break;
+			case MAVLink.USB:
+				UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
+				UsbSerialDriver driver = UsbSerialProber.acquire(manager);
+				if (driver!=null){
+					Log.d("USB", "Driver aquired");
+				}else{
+					Log.d("USB", "Driver not aquired");
+				}
+				MAV.openConnection(logEnabled,driver);								
+				break;
+			default:
+				break;
+			}
 		}
 	}
 

@@ -14,8 +14,15 @@ import android.util.Log;
 import com.MAVLink.Messages.MAVLinkMessage;
 import com.MAVLink.Messages.MAVLinkPacket;
 import com.diydrones.droidplanner.helpers.FileManager;
+import com.hoho.android.usbserial.driver.UsbSerialDriver;
 
 public abstract class MAVLink {
+
+	public static final int TCP = 0;
+	public static final int USB = 1;
+
+	int connectionType = TCP;
+
 	private String serverIP;
 	private int serverPort;
 	private boolean logEnabled;
@@ -25,6 +32,7 @@ public abstract class MAVLink {
 	public BufferedOutputStream logWriter;
 	BufferedOutputStream mavOut;
 	public int receivedCount = 0;
+	private UsbSerialDriver driver;
 
 	public abstract void onReceiveMessage(MAVLinkMessage msg);
 
@@ -36,6 +44,8 @@ public abstract class MAVLink {
 
 		public Parser parser;
 		Socket socket = null;
+		byte[] buffer = new byte[4096];
+		int numRead;
 
 		@Override
 		protected String doInBackground(String... message) {
@@ -44,23 +54,44 @@ public abstract class MAVLink {
 				if (logEnabled) {
 					logWriter = FileManager.getTLogFileStream();
 				}
-				getTCPStream();
+
+				switch (connectionType) {
+				default:
+				case TCP:
+					getTCPStream();
+					break;
+				case USB:
+					getUSBDriver();
+					break;
+				}
 
 				MAVLinkMessage m;
 
 				while (connected) {
-					int data;
-					if ((data = mavIn.read()) >= 0) {
-						if (logEnabled) {
-							logWriter.write(data);
+					switch (connectionType) {
+					default:
+					case TCP:
+						numRead = mavIn.read(buffer);
+						break;
+					case USB:
+						numRead = driver.read(buffer, 1000);
+						break;
+					}
+					if (numRead > 0) {
+						for (int i = 0; i < numRead; i++) {
+							if (logEnabled) {
+								logWriter.write(buffer[i]);
+							}
+							m = parser.mavlink_parse_char(buffer[i] & 0xff);
+							if (m != null) {
+								receivedCount++;
+								publishProgress(m);
+							}
 						}
-						m = parser.mavlink_parse_char(data);
-						if (m != null) {
-							receivedCount++;
-							publishProgress(m);
-						}
+
 					}
 				}
+
 			} catch (UnknownHostException e) {
 				e.printStackTrace();
 			} catch (FileNotFoundException e) {
@@ -73,6 +104,10 @@ public abstract class MAVLink {
 						socket.close();
 					}
 					if (logEnabled) {
+					if (driver != null) {
+						driver.close();
+					}
+					if (logWriter != null) {
 						logWriter.close();
 					}
 				} catch (IOException e) {
@@ -80,6 +115,13 @@ public abstract class MAVLink {
 				}
 			}
 			return null;
+		}
+
+		private void getUSBDriver() throws IOException {
+			if (driver != null) {
+				driver.open();
+				driver.setBaudRate(115200);
+			}
 		}
 
 		private void getTCPStream() throws UnknownHostException, IOException {
@@ -150,13 +192,25 @@ public abstract class MAVLink {
 	 * @param port
 	 * @param serverIP
 	 * @param logEnabled
+	 * @param driver
 	 */
 	public void openConnection(String serverIP, int port, boolean logEnabled) {
 		Log.d("TCP IN", "starting TCP");
 		connected = true;
+		connectionType = TCP;
 		this.serverIP = serverIP;
 		this.serverPort = port;
 		this.logEnabled = logEnabled;
+		new connectTask().execute("");
+		onConnect();
+	}
+
+	public void openConnection(boolean logEnabled, UsbSerialDriver driver) {
+		Log.d("TCP IN", "starting USB");
+		connected = true;
+		connectionType = USB;
+		this.logEnabled = logEnabled;
+		this.driver = driver;
 		new connectTask().execute("");
 		onConnect();
 	}
