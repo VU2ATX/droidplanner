@@ -23,6 +23,8 @@ import android.util.Log;
 import com.MAVLink.MAVLink;
 import com.MAVLink.Messages.MAVLinkMessage;
 import com.MAVLink.Messages.MAVLinkPacket;
+import com.diydrones.droidplanner.R;
+import com.diydrones.droidplanner.TerminalActivity;
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
 
@@ -86,7 +88,7 @@ public class MAVLinkService extends Service {
 
 			case MSG_CONNECT_DEVICE:
 				Log.d("Service", "Toglle connection to Device");
-				toggleConnectionState();
+				toggleConnectionState();		
 				break;
 
 			case MSG_SEND_DATA:
@@ -184,9 +186,7 @@ public class MAVLinkService extends Service {
 		if (MAV.isConnected()) {
 			MAV.closeConnection();
 		} else {
-			SharedPreferences prefs = PreferenceManager
-					.getDefaultSharedPreferences(getApplicationContext());
-			MAV.openConnection(serverIP, port, logEnabled);
+			SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
 			boolean logEnabled = prefs.getBoolean("pref_mavlink_log_enabled",false);
 			int connectionType = prefs.getInt("pref_mavlink_connection_type",MAVLink.USB);
 			
@@ -216,11 +216,10 @@ public class MAVLinkService extends Service {
 	 * Show a notification while this service is running.
 	 */
 	static final int StatusBarNotification = 1;
-
 	private void showNotification() {
-		updateNotification(getResources().getString(R.string.disconnected));
+			updateNotification(getResources().getString(R.string.disconnected));
 	}
-
+	
 	private void updateNotification(String text) {
 		NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(
 				this).setSmallIcon(R.drawable.ic_launcher)

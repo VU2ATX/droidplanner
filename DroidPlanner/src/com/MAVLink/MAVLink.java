@@ -15,13 +15,14 @@ import com.MAVLink.Messages.MAVLinkMessage;
 import com.MAVLink.Messages.MAVLinkPacket;
 import com.diydrones.droidplanner.helpers.FileManager;
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
+import com.hoho.android.usbserial.util.HexDump;
 
 public abstract class MAVLink {
 
 	public static final int TCP = 0;
 	public static final int USB = 1;
 
-	int connectionType = TCP;
+	int connectionType;
 
 	private String serverIP;
 	private int serverPort;
@@ -78,10 +79,12 @@ public abstract class MAVLink {
 						break;
 					}
 					if (numRead > 0) {
+						//Log.d("DUMP", "Read " + numRead + " bytes: \n"
+				                //+ HexDump.dumpHexString(buffer,0,numRead)+ "\n\n");
 						for (int i = 0; i < numRead; i++) {
 							if (logEnabled) {
 								logWriter.write(buffer[i]);
-							}
+							}							
 							m = parser.mavlink_parse_char(buffer[i] & 0xff);
 							if (m != null) {
 								receivedCount++;
@@ -103,7 +106,6 @@ public abstract class MAVLink {
 					if (socket != null) {
 						socket.close();
 					}
-					if (logEnabled) {
 					if (driver != null) {
 						driver.close();
 					}
@@ -194,7 +196,7 @@ public abstract class MAVLink {
 	 * @param logEnabled
 	 * @param driver
 	 */
-	public void openConnection(String serverIP, int port, boolean logEnabled) {
+	public void openConnection(boolean logEnabled, String serverIP, int port) {
 		Log.d("TCP IN", "starting TCP");
 		connected = true;
 		connectionType = TCP;
